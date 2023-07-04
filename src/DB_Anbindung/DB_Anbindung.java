@@ -91,6 +91,10 @@ public class DB_Anbindung {
         } catch (SQLException e)    {
             System.err.println(e);
             return null;
+        } catch (NullPointerException err)  {
+//            System.err.println(err);
+            System.err.println("Datenbank nicht erreichbar");
+            return null;
         }
     }
 

@@ -22,17 +22,19 @@ public class GUI extends JFrame {
 
     private CardLayout mainAusgabe;
 
+    private boolean displayType;    //true = Tabelle, False = Kalender
+
     public GUI ()   {
         datenBank = new DB_Anbindung();
 
-        setSize(600, 600);
+        setSize(800, 600);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
         setTitle("terminplaner");
         setResizable(false);
 
         insertWindow = new JFrame();
-        insertWindow.setSize(600,200);
+        insertWindow.setSize(600,180);
         insertWindow.setResizable(false);
         insertWindow.setLocationRelativeTo(this);
 
@@ -79,11 +81,13 @@ public class GUI extends JFrame {
     }
 
     private JTable ausgabeGenerieren(Zeitraum zeitraum) {
-        String[] spaltenNamen = {"Titel", "Datum", "StartZeit", "Dauer", "Ort"};
+        String[] spaltenNamen = {"Titel", "Datum", "Startzeit", "Dauer", "Ort"};
         ResultSet numTermine;
         int anzahlTermine;
         DateTimeFormatter dtf = DateTimeFormatter.ofPattern("dd.MM.uuuu");
         DateTimeFormatter ltf = DateTimeFormatter.ofPattern("HH:mm");
+
+        LocalDate localDate = LocalDate.now();
 
         try {
             switch (zeitraum) {
@@ -114,7 +118,6 @@ public class GUI extends JFrame {
                     return ausgabe;
 
                 case HEUTE:
-                    LocalDate localDate = LocalDate.now();
                     
                     numTermine = datenBank.search("SELECT COUNT(datum) FROM `tbl_termine` WHERE datum = '"+ localDate+"'");
                     numTermine.next();
@@ -143,7 +146,6 @@ public class GUI extends JFrame {
                     return ausgabe;
 
                 case WOCHE:
-                    localDate = LocalDate.now();
 
                     LocalDate startDate = LocalDate.ofYearDay(localDate.getYear(), localDate.getDayOfYear() - localDate.getDayOfWeek().getValue());
                     LocalDate endDate = LocalDate.ofYearDay(localDate.getYear(), localDate.getDayOfYear() + (7 - localDate.getDayOfWeek().getValue()));
@@ -173,10 +175,42 @@ public class GUI extends JFrame {
                     }
 
                     return ausgabe;
+
+                case NAECHSTEWOCHE:
+
+                    endDate = LocalDate.ofYearDay(localDate.getYear(), localDate.getDayOfYear() + 7);
+
+                    numTermine = datenBank.search("SELECT COUNT(datum) FROM `tbl_termine` WHERE datum >= '"+localDate+"' AND datum <= '"+endDate+"'");
+                    numTermine.next();
+                    anzahlTermine = numTermine.getInt(1);
+
+                    data = new Object[anzahlTermine][];
+                    termine = datenBank.search("SELECT * FROM `tbl_termine` WHERE datum >= '"+localDate+"' AND datum <= '"+endDate+"'");
+
+                    for(int i = 0; i < data.length; i++)    {
+                        termine.next();
+                        data[i] = new Object[]{termine.getString(2),            //titel
+                                termine.getDate(3).toLocalDate().format(dtf),   //datum
+                                termine.getTime(4).toLocalTime().format(ltf),   //startzeit
+                                termine.getTime(5).toLocalTime().format(ltf),   //dauer
+                                termine.getString(6)};                          //ort
+                    }
+
+                    ausgabe = new JTable(data, spaltenNamen);
+                    centerRenderer = new DefaultTableCellRenderer();
+                    centerRenderer.setHorizontalAlignment( JLabel.CENTER );
+
+                    for(int x=0;x<ausgabe.getColumnCount();x++){
+                        ausgabe.getColumnModel().getColumn(x).setCellRenderer( centerRenderer );
+                    }
+
+                    return ausgabe;
+
             }
 
         }catch (SQLException err)   {
             System.err.println(err);
+        }catch (NullPointerException nul)   {
         }
         return null;
     }
@@ -187,6 +221,7 @@ public class GUI extends JFrame {
 
         ausgabe = new JPanel();
         ausgabe.setLayout(new CardLayout());
+        ausgabe.setBorder(BorderFactory.createLineBorder(Color.BLACK,2));
 
         JPanel controlButtons = new JPanel();
         controlButtons.setLayout(new BoxLayout(controlButtons, BoxLayout.Y_AXIS));
@@ -230,6 +265,46 @@ public class GUI extends JFrame {
         dieseWochePanel.add(termineWoche);
         dieseWochePanel.setAlignmentX(Component.CENTER_ALIGNMENT);
 
+        JButton termineNaechsteWoche = new JButton("termine der nächsten Woche ausgeben");      //TODO: bessere Beschriftung
+        termineNaechsteWoche.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                mainAusgabe.show(ausgabe, "naechste woche");
+            }
+        });
+
+        JPanel naechsteWochePanel = new JPanel();
+        naechsteWochePanel.setLayout(new FlowLayout());
+        naechsteWochePanel.add(termineNaechsteWoche);
+        naechsteWochePanel.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+        JButton termineMonat = new JButton("termine diesen Monat ausgeben");
+        termineMonat.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                mainAusgabe.show(ausgabe, "monat");
+            }
+        });
+
+        JPanel diesenMonatPanel = new JPanel();
+        diesenMonatPanel.setLayout(new FlowLayout());
+        diesenMonatPanel.add(termineMonat);
+        diesenMonatPanel.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+        JButton termineNaechsterMonat = new JButton("termine des nächsten Monats ausgeben");      //TODO: bessere Beschriftung
+        termineNaechsterMonat.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                mainAusgabe.show(ausgabe, "naechster monat");
+            }
+        });
+
+        JPanel naechstenMonatPanel = new JPanel();
+        naechstenMonatPanel.setLayout(new FlowLayout());
+        naechstenMonatPanel.add(termineNaechsterMonat);
+        naechstenMonatPanel.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+
         JButton einfuegenButton = new JButton("neuen Termin einfügen");
         einfuegenButton.addActionListener(new ActionListener() {
             @Override
@@ -242,6 +317,19 @@ public class GUI extends JFrame {
         einfuegenPanel.setLayout(new FlowLayout());
         einfuegenPanel.add(einfuegenButton);
         einfuegenPanel.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+        JButton anzeigeUmschaltenButton = new JButton("Anzeige umschalten");
+        anzeigeUmschaltenButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                displayType = !displayType;
+            }
+        });
+
+        JPanel anzeigeUmschaltenPanel = new JPanel();
+        anzeigeUmschaltenPanel.setLayout(new FlowLayout());
+        anzeigeUmschaltenPanel.add(anzeigeUmschaltenButton);
+        anzeigeUmschaltenPanel.setAlignmentX(Component.CENTER_ALIGNMENT);
 
         JButton beendenButton = new JButton("Beenden");
         beendenButton.addActionListener(new ActionListener() {
@@ -257,22 +345,27 @@ public class GUI extends JFrame {
         beendenPanel.setAlignmentX(Component.CENTER_ALIGNMENT);
 
         controlButtons.add(Box.createRigidArea(new Dimension(0,10)));
-        controlButtons.add(Box.createHorizontalGlue());
         controlButtons.add(alleTermine);
         controlButtons.add(Box.createRigidArea(new Dimension(0,20)));
         controlButtons.add(termineHeute);
         controlButtons.add(Box.createRigidArea(new Dimension(0,20)));
         controlButtons.add(termineWoche);
+        controlButtons.add(Box.createRigidArea(new Dimension(0,20)));
+        controlButtons.add(termineNaechsteWoche);
+        controlButtons.add(Box.createRigidArea(new Dimension(0,20)));
+        controlButtons.add(termineMonat);
+        controlButtons.add(Box.createRigidArea(new Dimension(0,20)));
+        controlButtons.add(termineNaechsterMonat);
         controlButtons.add(Box.createVerticalGlue());
         controlButtons.add(Box.createRigidArea(new Dimension(0,10)));
         controlButtons.add(einfuegenButton);
+        controlButtons.add(Box.createRigidArea(new Dimension(0,20)));
+        controlButtons.add(anzeigeUmschaltenButton);
         controlButtons.add(Box.createRigidArea(new Dimension(0,20)));
         controlButtons.add(beendenButton);
         controlButtons.add(Box.createRigidArea(new Dimension(0,10)));
 
         refreshAusgabePanel();
-
-        mainAusgabe = (CardLayout)(ausgabe.getLayout());
 
         mainPanel.add(ausgabe);
         mainPanel.add(controlButtons);
@@ -287,6 +380,9 @@ public class GUI extends JFrame {
         JScrollPane tableScrollPaneAlle = new JScrollPane(ausgabeGenerieren(Zeitraum.ALLE));
         JScrollPane tableScrollPaneHeute = new JScrollPane(ausgabeGenerieren(Zeitraum.HEUTE));
         JScrollPane tableScrollPaneWoche = new JScrollPane(ausgabeGenerieren(Zeitraum.WOCHE));
+        JScrollPane tableScrollPaneNaechsteWoche = new JScrollPane(ausgabeGenerieren(Zeitraum.NAECHSTEWOCHE));
+        JScrollPane tableScrollPaneMonat = new JScrollPane(ausgabeGenerieren(Zeitraum.MONAT));
+        JScrollPane tableScrollPaneNaechstenMonat = new JScrollPane(ausgabeGenerieren(Zeitraum.NAECHSTERMONAT));
 
 
         JPanel ausgabePanelAlle = new JPanel();
@@ -296,6 +392,7 @@ public class GUI extends JFrame {
 
         ausgabePanelAlle.add(ueberschriftPanelAlle);
         ausgabePanelAlle.add(tableScrollPaneAlle);
+
 
         JPanel ausgabePanelHeute = new JPanel();
         ausgabePanelHeute.setLayout(new BoxLayout(ausgabePanelHeute, BoxLayout.Y_AXIS));
@@ -314,9 +411,41 @@ public class GUI extends JFrame {
         ausgabePanelWoche.add(ueberschriftPanelWoche);
         ausgabePanelWoche.add(tableScrollPaneWoche);
 
+
+        JPanel ausgabePanelNaechsteWoche = new JPanel();
+        ausgabePanelNaechsteWoche.setLayout(new BoxLayout(ausgabePanelNaechsteWoche, BoxLayout.Y_AXIS));
+        JPanel ueberschriftPanelNaechsteWoche = new JPanel();
+        ueberschriftPanelNaechsteWoche.add(new JLabel("Termine der nächsten sieben Tage"));
+
+        ausgabePanelNaechsteWoche.add(ueberschriftPanelNaechsteWoche);
+        ausgabePanelNaechsteWoche.add(tableScrollPaneNaechsteWoche);
+
+
+        JPanel ausgabePanelMonat = new JPanel();
+        ausgabePanelMonat.setLayout(new BoxLayout(ausgabePanelMonat, BoxLayout.Y_AXIS));
+        JPanel ueberschriftPanelMonat = new JPanel();
+        ueberschriftPanelMonat.add(new JLabel("Termine diesen Monat"));
+
+        ausgabePanelMonat.add(ueberschriftPanelMonat);
+        ausgabePanelMonat.add(tableScrollPaneMonat);
+
+
+        JPanel ausgabePanelNaechstenMonat = new JPanel();
+        ausgabePanelNaechstenMonat.setLayout(new BoxLayout(ausgabePanelNaechstenMonat, BoxLayout.Y_AXIS));
+        JPanel ueberschriftPanelNaechstenMonat = new JPanel();
+        ueberschriftPanelNaechstenMonat.add(new JLabel("Termine in den nächsten 30 Tagen"));
+
+        ausgabePanelNaechstenMonat.add(ueberschriftPanelNaechstenMonat);
+        ausgabePanelNaechstenMonat.add(tableScrollPaneNaechstenMonat);
+
         ausgabe.add(ausgabePanelAlle, "alle");
         ausgabe.add(ausgabePanelHeute, "heute");
         ausgabe.add(ausgabePanelWoche, "woche");
+        ausgabe.add(ausgabePanelNaechsteWoche, "naechste woche");
+        ausgabe.add(ausgabePanelMonat, "monat");
+        ausgabe.add(ausgabePanelNaechstenMonat, "naechster monat");
+
+        mainAusgabe = (CardLayout)(ausgabe.getLayout());
     }
 
     private void createInsertWindow()   {
