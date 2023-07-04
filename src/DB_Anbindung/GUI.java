@@ -1,19 +1,26 @@
 package DB_Anbindung;
 
 import javax.swing.*;
+import javax.swing.plaf.basic.DefaultMenuLayout;
+import javax.swing.table.DefaultTableCellRenderer;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.Calendar;
 
 public class GUI extends JFrame {
     DB_Anbindung datenBank;
 
     private JFrame insertWindow;
-    private JTable ausgabeTable;
+
+    private JPanel ausgabe;
+
+    private CardLayout mainAusgabe;
 
     public GUI ()   {
         datenBank = new DB_Anbindung();
@@ -26,7 +33,7 @@ public class GUI extends JFrame {
 
         insertWindow = new JFrame();
         insertWindow.setSize(600,200);
-        insertWindow.setResizable(true);
+        insertWindow.setResizable(false);
         insertWindow.setLocationRelativeTo(this);
 
         createInsertWindow();
@@ -36,21 +43,38 @@ public class GUI extends JFrame {
 
     private void testing() {
         JFrame testingFrame = new JFrame();
-        testingFrame.setLayout(new GridLayout(1,0));
+//        testingFrame.setLayout(new GridLayout(1,0));
+//
+//        String[] columnNames = {"titel","datum","startzeit","dauer","ort"};
+//        Object[][] data = {{"test1","heute","jetzt","keine","hier"},
+//        {"test2","heute2","jetzt2","keine2","hier2"}};
+//
+//        final JTable table = new JTable(data, columnNames);
+//        table.setPreferredScrollableViewportSize(new Dimension(500, 70));
+//        table.setFillsViewportHeight(true);
+//
+//        //Create the scroll pane and add the table to it.
+//        JScrollPane scrollPane = new JScrollPane(table);
+//
+//        //Add the scroll pane to this panel.
+//        testingFrame.add(scrollPane);
 
-        String[] columnNames = {"titel","datum","startzeit","dauer","ort"};
-        Object[][] data = {{"test1","heute","jetzt","keine","hier"},
-        {"test2","heute2","jetzt2","keine2","hier2"}};
+        testingFrame.setSize(200,200);
+        testingFrame.setLocationRelativeTo(null);
 
-        final JTable table = new JTable(data, columnNames);
-        table.setPreferredScrollableViewportSize(new Dimension(500, 70));
-        table.setFillsViewportHeight(true);
+        JPanel testingPanel = new JPanel();
+        testingPanel.setLayout(new CardLayout());
 
-        //Create the scroll pane and add the table to it.
-        JScrollPane scrollPane = new JScrollPane(table);
 
-        //Add the scroll pane to this panel.
-        testingFrame.add(scrollPane);
+        testingPanel.add(new JTextField("test1"),"test1");
+        testingPanel.add(new JTextField("test2"),"test2");
+
+//        testingFrame.add(comboBoxPane, BorderLayout.PAGE_START);
+        testingFrame.add(testingPanel, BorderLayout.CENTER);
+
+        CardLayout cl = (CardLayout)(testingPanel.getLayout());
+        cl.show(testingPanel,"test2");
+
         testingFrame.setVisible(true);
     }
 
@@ -58,8 +82,9 @@ public class GUI extends JFrame {
         String[] spaltenNamen = {"Titel", "Datum", "StartZeit", "Dauer", "Ort"};
         ResultSet numTermine;
         int anzahlTermine;
+        DateTimeFormatter dtf = DateTimeFormatter.ofPattern("dd.MM.uuuu");
+        DateTimeFormatter ltf = DateTimeFormatter.ofPattern("HH:mm");
 
-        java.util.Date currentDate = Calendar.getInstance().getTime();
         try {
             switch (zeitraum) {
                 case ALLE:
@@ -71,31 +96,83 @@ public class GUI extends JFrame {
 
                     for(int i = 0; i < data.length; i++)    {
                         termine.next();
-                        data[i] = new Object[]{termine.getString(2), termine.getDate(3), termine.getTime(4), termine.getTime(5), termine.getString(6)};
+                        data[i] = new Object[]{termine.getString(2),            //titel
+                                termine.getDate(3).toLocalDate().format(dtf),   //datum
+                                termine.getTime(4).toLocalTime().format(ltf),   //startZeit
+                                termine.getTime(5).toLocalTime().format(ltf),   //dauer
+                                termine.getString(6)};                          //ort
                     }
 
                     JTable ausgabe = new JTable(data, spaltenNamen);
-                    return ausgabe;
-                case HEUTE:
-                    System.out.println("heute");
+                    DefaultTableCellRenderer centerRenderer = new DefaultTableCellRenderer();
+                    centerRenderer.setHorizontalAlignment( JLabel.CENTER );
 
-                    String condition = currentDate.getYear()+"-"+currentDate.getMonth()+"-"+currentDate.getDate();
-                    numTermine = datenBank.search("SELECT COUNT(datum) FROM `tbl_termine` WHERE datum = "+ condition);
+                    for(int x=0;x<ausgabe.getColumnCount();x++){
+                        ausgabe.getColumnModel().getColumn(x).setCellRenderer( centerRenderer );
+                    }
+
+                    return ausgabe;
+
+                case HEUTE:
+                    LocalDate localDate = LocalDate.now();
+                    
+                    numTermine = datenBank.search("SELECT COUNT(datum) FROM `tbl_termine` WHERE datum = '"+ localDate+"'");
                     numTermine.next();
                     anzahlTermine = numTermine.getInt(1);
 
                     data = new Object[anzahlTermine][];
-                    termine = datenBank.search("SELECT * FROM `tbl_termine` WHERE datum = "+condition);
+                    termine = datenBank.search("SELECT * FROM `tbl_termine` WHERE datum = '"+localDate+"'");
 
                     for(int i = 0; i < data.length; i++)    {
                         termine.next();
-                        data[i] = new Object[]{termine.getString(2), termine.getDate(3), termine.getTime(4), termine.getTime(5), termine.getString(6)};
+                        data[i] = new Object[]{termine.getString(2),            //titel
+                                termine.getDate(3).toLocalDate().format(dtf),   //datum
+                                termine.getTime(4).toLocalTime().format(ltf),   //startzeit
+                                termine.getTime(5).toLocalTime().format(ltf),   //dauer
+                                termine.getString(6)};                          //ort
                     }
 
                     ausgabe = new JTable(data, spaltenNamen);
+                    centerRenderer = new DefaultTableCellRenderer();
+                    centerRenderer.setHorizontalAlignment( JLabel.CENTER );
+
+                    for(int x=0;x<ausgabe.getColumnCount();x++){
+                        ausgabe.getColumnModel().getColumn(x).setCellRenderer( centerRenderer );
+                    }
+
                     return ausgabe;
+
                 case WOCHE:
-                    break;
+                    localDate = LocalDate.now();
+
+                    LocalDate startDate = LocalDate.ofYearDay(localDate.getYear(), localDate.getDayOfYear() - localDate.getDayOfWeek().getValue());
+                    LocalDate endDate = LocalDate.ofYearDay(localDate.getYear(), localDate.getDayOfYear() + (7 - localDate.getDayOfWeek().getValue()));
+
+                    numTermine = datenBank.search("SELECT COUNT(datum) FROM `tbl_termine` WHERE datum >= '"+startDate+"' AND datum <= '"+endDate+"'");
+                    numTermine.next();
+                    anzahlTermine = numTermine.getInt(1);
+
+                    data = new Object[anzahlTermine][];
+                    termine = datenBank.search("SELECT * FROM `tbl_termine` WHERE datum >= '"+startDate+"' AND datum <= '"+endDate+"'");
+
+                    for(int i = 0; i < data.length; i++)    {
+                        termine.next();
+                        data[i] = new Object[]{termine.getString(2),            //titel
+                                termine.getDate(3).toLocalDate().format(dtf),   //datum
+                                termine.getTime(4).toLocalTime().format(ltf),   //startzeit
+                                termine.getTime(5).toLocalTime().format(ltf),   //dauer
+                                termine.getString(6)};                          //ort
+                    }
+
+                    ausgabe = new JTable(data, spaltenNamen);
+                    centerRenderer = new DefaultTableCellRenderer();
+                    centerRenderer.setHorizontalAlignment( JLabel.CENTER );
+
+                    for(int x=0;x<ausgabe.getColumnCount();x++){
+                        ausgabe.getColumnModel().getColumn(x).setCellRenderer( centerRenderer );
+                    }
+
+                    return ausgabe;
             }
 
         }catch (SQLException err)   {
@@ -108,10 +185,8 @@ public class GUI extends JFrame {
         JPanel mainPanel = new JPanel();
         mainPanel.setLayout(new BoxLayout(mainPanel, BoxLayout.X_AXIS));
 
-        JPanel ausgabe = new JPanel();
-        ausgabe.setLayout(new BorderLayout());
-
-        ausgabeTable = ausgabeGenerieren(Zeitraum.HEUTE);
+        ausgabe = new JPanel();
+        ausgabe.setLayout(new CardLayout());
 
         JPanel controlButtons = new JPanel();
         controlButtons.setLayout(new BoxLayout(controlButtons, BoxLayout.Y_AXIS));
@@ -120,7 +195,7 @@ public class GUI extends JFrame {
         alleTermine.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                ausgabeTable = ausgabeGenerieren(Zeitraum.ALLE);
+                mainAusgabe.show(ausgabe,"alle");
             }
         });
 
@@ -133,7 +208,7 @@ public class GUI extends JFrame {
         termineHeute.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                ausgabeTable = ausgabeGenerieren(Zeitraum.HEUTE);
+                mainAusgabe.show(ausgabe,"heute");
             }
         });
 
@@ -146,7 +221,7 @@ public class GUI extends JFrame {
         termineWoche.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                System.out.println("termine diese WWoche ausgeben");
+                mainAusgabe.show(ausgabe, "woche");
             }
         });
 
@@ -193,16 +268,55 @@ public class GUI extends JFrame {
         controlButtons.add(einfuegenButton);
         controlButtons.add(Box.createRigidArea(new Dimension(0,20)));
         controlButtons.add(beendenButton);
+        controlButtons.add(Box.createRigidArea(new Dimension(0,10)));
 
-        JScrollPane tableScrollPane = new JScrollPane(ausgabeTable);
+        refreshAusgabePanel();
 
-        ausgabe.add(tableScrollPane);
+        mainAusgabe = (CardLayout)(ausgabe.getLayout());
 
         mainPanel.add(ausgabe);
         mainPanel.add(controlButtons);
 
         this.getContentPane().add(mainPanel);
         this.setVisible(true);
+    }
+
+    private void refreshAusgabePanel(){
+        ausgabe.removeAll();
+
+        JScrollPane tableScrollPaneAlle = new JScrollPane(ausgabeGenerieren(Zeitraum.ALLE));
+        JScrollPane tableScrollPaneHeute = new JScrollPane(ausgabeGenerieren(Zeitraum.HEUTE));
+        JScrollPane tableScrollPaneWoche = new JScrollPane(ausgabeGenerieren(Zeitraum.WOCHE));
+
+
+        JPanel ausgabePanelAlle = new JPanel();
+        ausgabePanelAlle.setLayout(new BoxLayout(ausgabePanelAlle, BoxLayout.Y_AXIS));
+        JPanel ueberschriftPanelAlle = new JPanel();
+        ueberschriftPanelAlle.add(new JLabel("alle Termine"));
+
+        ausgabePanelAlle.add(ueberschriftPanelAlle);
+        ausgabePanelAlle.add(tableScrollPaneAlle);
+
+        JPanel ausgabePanelHeute = new JPanel();
+        ausgabePanelHeute.setLayout(new BoxLayout(ausgabePanelHeute, BoxLayout.Y_AXIS));
+        JPanel ueberschriftPanelHeute = new JPanel();
+        ueberschriftPanelHeute.add(new JLabel("Termine heute"));
+
+        ausgabePanelHeute.add(ueberschriftPanelHeute);
+        ausgabePanelHeute.add(tableScrollPaneHeute);
+
+
+        JPanel ausgabePanelWoche = new JPanel();
+        ausgabePanelWoche.setLayout(new BoxLayout(ausgabePanelWoche, BoxLayout.Y_AXIS));
+        JPanel ueberschriftPanelWoche = new JPanel();
+        ueberschriftPanelWoche.add(new JLabel("Termine diese Woche"));
+
+        ausgabePanelWoche.add(ueberschriftPanelWoche);
+        ausgabePanelWoche.add(tableScrollPaneWoche);
+
+        ausgabe.add(ausgabePanelAlle, "alle");
+        ausgabe.add(ausgabePanelHeute, "heute");
+        ausgabe.add(ausgabePanelWoche, "woche");
     }
 
     private void createInsertWindow()   {
@@ -213,10 +327,10 @@ public class GUI extends JFrame {
         ueberschriftPanel.setLayout(new BorderLayout());
 
         ueberschriftPanel.add(new JLabel("neuen Termin hinzufügen"));
-        ueberschriftPanel.setBorder(BorderFactory.createLineBorder(Color.BLACK));
+//        ueberschriftPanel.setBorder(BorderFactory.createLineBorder(Color.BLACK));
 
         JPanel einfuegePanel = new JPanel();
-        einfuegePanel.setBorder(BorderFactory.createLineBorder(Color.BLUE));
+//        einfuegePanel.setBorder(BorderFactory.createLineBorder(Color.BLUE));
         einfuegePanel.setLayout(new BoxLayout(einfuegePanel,BoxLayout.X_AXIS));
 
         JPanel lp1 = new JPanel();
@@ -298,7 +412,7 @@ public class GUI extends JFrame {
 
         JPanel controlButtons = new JPanel();
         controlButtons.setLayout(new BoxLayout(controlButtons, BoxLayout.X_AXIS));
-        controlButtons.setBorder(BorderFactory.createLineBorder(Color.GRAY));
+//        controlButtons.setBorder(BorderFactory.createLineBorder(Color.GRAY));
 
         JButton cancelButton = new JButton("Cancel");
         cancelButton.addActionListener(new ActionListener() {
@@ -339,7 +453,9 @@ public class GUI extends JFrame {
                     temp += datum[i];
                 int jahr = Integer.parseInt(temp);
 
-                datenBank.einfuegen(titelFeld.getText(), new Date(jahr, monat, tag),startFeld.getText(), dauerFeld.getText(), ortFeld.getText());
+                datenBank.einfuegen(titelFeld.getText(), LocalDate.of(jahr,monat,tag),startFeld.getText(), dauerFeld.getText(), ortFeld.getText());
+
+                refreshAusgabePanel();
 
                 insertWindow.setVisible(false);
 
