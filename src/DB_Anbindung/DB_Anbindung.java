@@ -98,7 +98,7 @@ public class DB_Anbindung {
         }
     }
 
-    public void einfuegen(String titel, LocalDate datum, String startzeit, String dauer, String ort) {
+    public void einfuegen(String titel, LocalDate datum, String startzeit, String dauer, String ort, String farbe) {
         try{
             query = "SELECT * FROM tbl_termine WHERE `titel` = '"+titel+"' AND `datum` = '"+datum+"'";
             //wir benötigen ein Statement-Objekt, um Aktivitäten auf der DB auszuführen
@@ -107,7 +107,7 @@ public class DB_Anbindung {
             rs = stmt.executeQuery(query);
 
             if(!rs.next())  {
-                query = "INSERT INTO `tbl_termine`(`titel`, `datum`, `startzeit`, `dauer`, `ort`) VALUES ('"+titel+"','"+datum+"','"+startzeit+"','"+dauer+"','"+ort+"')";
+                query = "INSERT INTO `tbl_termine`(`titel`, `datum`, `startzeit`, `dauer`, `ort`, `farbe`) VALUES ('"+titel+"','"+datum+"','"+startzeit+"','"+dauer+"','"+ort+"','"+farbe+"')";
                 //wir benötigen ein Statement-Objekt, um Aktivitäten auf der DB auszuführen
                 stmt = conn.createStatement();
                 //das ergebnis kommt in ein Resultset Object
