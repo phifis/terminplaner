@@ -1,31 +1,33 @@
 package DB_Anbindung;
 
+import com.mysql.cj.result.OffsetTimeValueFactory;
+
 import javax.swing.*;
-import javax.swing.plaf.basic.DefaultMenuLayout;
-import javax.swing.table.DefaultTableCellRenderer;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.sql.Date;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
-import java.util.Calendar;
+import java.time.Year;
 
 public class GUI extends JFrame {
-    DB_Anbindung datenBank;
+    private DB_Anbindung datenBank;
+    private AusgabenGenerator ausgabenGenerator;
 
     private JFrame insertWindow;
+    private JFrame removeWindow;
 
     private JPanel ausgabe;
+    private JPanel displaySearchPanel;
 
     private CardLayout mainAusgabe;
+
+    private String lastDisplayType;
 
     private boolean displayType;    //true = Tabelle, False = Kalender
 
     public GUI ()   {
         datenBank = new DB_Anbindung();
+        ausgabenGenerator = new AusgabenGenerator(datenBank);
 
         setSize(800, 600);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -34,13 +36,21 @@ public class GUI extends JFrame {
         setResizable(false);
 
         insertWindow = new JFrame();
-        insertWindow.setSize(800,180);
+        insertWindow.setMinimumSize(new Dimension(700,150));
         insertWindow.setResizable(false);
         insertWindow.setLocationRelativeTo(this);
 
+        removeWindow = new JFrame();
+        removeWindow.setResizable(false);
+        removeWindow.setLocationRelativeTo(this);
+
         displayType = true;
+        lastDisplayType = "alle";
+
+        displaySearchPanel = new JPanel();
 
         createInsertWindow();
+        createRemoveWindow();
         createMainWindow();
 //        testing();
     }
@@ -76,195 +86,71 @@ public class GUI extends JFrame {
         testingFrame.setVisible(true);
     }
 
-    private JTable ausgabeGenerieren(Zeitraum zeitraum) {
-        int[] daysOfMonth = {0,31,28,31,30,31,30,31,31,30,31,30,31};
-        ResultSet numTermine;
-        int anzahlTermine;
-        DateTimeFormatter dtf = DateTimeFormatter.ofPattern("dd.MM.uuuu");
-        DateTimeFormatter ltf = DateTimeFormatter.ofPattern("HH:mm");
-
-        LocalDate localDate = LocalDate.now();
-
-        try {
-            if(displayType) {       //ausgabe als Tabelle
-                String[] spaltenNamen = {"Titel", "Datum", "Startzeit", "Dauer", "Ort"};
-
-                switch (zeitraum) {
-                    case ALLE:
-                        numTermine = datenBank.search("SELECT COUNT(datum) FROM `tbl_termine` WHERE 1");
-                        numTermine.next();
-                        anzahlTermine = numTermine.getInt(1);
-                        Object[][] data = new Object[anzahlTermine][];
-                        ResultSet termine = datenBank.search("SELECT * FROM `tbl_termine` WHERE 1");
-                        for (int i = 0; i < data.length; i++) {
-                            termine.next();
-                            data[i] = new Object[]{"<html><font color='" + termine.getString(7) + "'>" + termine.getString(2) + "</font></html>",            //titel
-                                    termine.getDate(3).toLocalDate().format(dtf),   //datum
-                                    termine.getTime(4).toLocalTime().format(ltf),   //startZeit
-                                    termine.getTime(5).toLocalTime().format(ltf),   //dauer
-                                    termine.getString(6)};                          //ort
-                        }
-                        JTable ausgabe = new JTable(data, spaltenNamen);
-                        DefaultTableCellRenderer centerRenderer = new DefaultTableCellRenderer();
-                        centerRenderer.setHorizontalAlignment(JLabel.CENTER);
-                        for (int x = 0; x < ausgabe.getColumnCount(); x++) {
-                            ausgabe.getColumnModel().getColumn(x).setCellRenderer(centerRenderer);
-                        }
-                        return ausgabe;
-                    case HEUTE:
-                        numTermine = datenBank.search("SELECT COUNT(datum) FROM `tbl_termine` WHERE datum = '" + localDate + "'");
-                        numTermine.next();
-                        anzahlTermine = numTermine.getInt(1);
-                        data = new Object[anzahlTermine][];
-                        termine = datenBank.search("SELECT * FROM `tbl_termine` WHERE datum = '" + localDate + "'");
-                        for (int i = 0; i < data.length; i++) {
-                            termine.next();
-                            data[i] = new Object[]{"<html><font color='" + termine.getString(7) + "'>" + termine.getString(2) + "</font></html>",            //titel
-                                    termine.getDate(3).toLocalDate().format(dtf),   //datum
-                                    termine.getTime(4).toLocalTime().format(ltf),   //startzeit
-                                    termine.getTime(5).toLocalTime().format(ltf),   //dauer
-                                    termine.getString(6)};                          //ort
-                        }
-                        ausgabe = new JTable(data, spaltenNamen);
-                        centerRenderer = new DefaultTableCellRenderer();
-                        centerRenderer.setHorizontalAlignment(JLabel.CENTER);
-                        for (int x = 0; x < ausgabe.getColumnCount(); x++) {
-                            ausgabe.getColumnModel().getColumn(x).setCellRenderer(centerRenderer);
-                        }
-                        return ausgabe;
-                    case WOCHE:
-                        LocalDate startDate = LocalDate.ofYearDay(localDate.getYear(), localDate.getDayOfYear() - localDate.getDayOfWeek().getValue());
-                        LocalDate endDate = LocalDate.ofYearDay(localDate.getYear(), localDate.getDayOfYear() + (7 - localDate.getDayOfWeek().getValue()));
-                        numTermine = datenBank.search("SELECT COUNT(datum) FROM `tbl_termine` WHERE datum > '" + startDate + "' AND datum <= '" + endDate + "'");
-                        numTermine.next();
-                        anzahlTermine = numTermine.getInt(1);
-                        data = new Object[anzahlTermine][];
-                        termine = datenBank.search("SELECT * FROM `tbl_termine` WHERE datum > '" + startDate + "' AND datum <= '" + endDate + "'");
-                        for (int i = 0; i < data.length; i++) {
-                            termine.next();
-                            data[i] = new Object[]{"<html><font color='" + termine.getString(7) + "'>" + termine.getString(2) + "</font></html>",            //titel
-                                    termine.getDate(3).toLocalDate().format(dtf),   //datum
-                                    termine.getTime(4).toLocalTime().format(ltf),   //startzeit
-                                    termine.getTime(5).toLocalTime().format(ltf),   //dauer
-                                    termine.getString(6)};                          //ort
-                        }
-                        ausgabe = new JTable(data, spaltenNamen);
-                        centerRenderer = new DefaultTableCellRenderer();
-                        centerRenderer.setHorizontalAlignment(JLabel.CENTER);
-                        for (int x = 0; x < ausgabe.getColumnCount(); x++) {
-                            ausgabe.getColumnModel().getColumn(x).setCellRenderer(centerRenderer);
-                        }
-                        return ausgabe;
-                    case NAECHSTEWOCHE:
-                        endDate = LocalDate.ofYearDay(localDate.getYear(), localDate.getDayOfYear() + 7);
-                        numTermine = datenBank.search("SELECT COUNT(datum) FROM `tbl_termine` WHERE datum >= '" + localDate + "' AND datum <= '" + endDate + "'");
-                        numTermine.next();
-                        anzahlTermine = numTermine.getInt(1);
-                        data = new Object[anzahlTermine][];
-                        termine = datenBank.search("SELECT * FROM `tbl_termine` WHERE datum >= '" + localDate + "' AND datum <= '" + endDate + "'");
-                        for (int i = 0; i < data.length; i++) {
-                            termine.next();
-                            data[i] = new Object[]{"<html><font color='" + termine.getString(7) + "'>" + termine.getString(2) + "</font></html>",            //titel
-                                    termine.getDate(3).toLocalDate().format(dtf),   //datum
-                                    termine.getTime(4).toLocalTime().format(ltf),   //startzeit
-                                    termine.getTime(5).toLocalTime().format(ltf),   //dauer
-                                    termine.getString(6)};                          //ort
-                        }
-                        ausgabe = new JTable(data, spaltenNamen);
-                        centerRenderer = new DefaultTableCellRenderer();
-                        centerRenderer.setHorizontalAlignment(JLabel.CENTER);
-                        for (int x = 0; x < ausgabe.getColumnCount(); x++) {
-                            ausgabe.getColumnModel().getColumn(x).setCellRenderer(centerRenderer);
-                        }
-                        return ausgabe;
-                    case MONAT:
-                        startDate = LocalDate.ofYearDay(localDate.getYear(), localDate.getDayOfYear() - localDate.getDayOfMonth());
-                        endDate = LocalDate.of(localDate.getYear(), localDate.getMonthValue(), daysOfMonth[localDate.getMonthValue()]);
-                        numTermine = datenBank.search("SELECT COUNT(datum) FROM `tbl_termine` WHERE datum >= '" + startDate + "' AND datum <= '" + endDate + "'");
-                        numTermine.next();
-                        anzahlTermine = numTermine.getInt(1);
-                        data = new Object[anzahlTermine][];
-                        termine = datenBank.search("SELECT * FROM `tbl_termine` WHERE datum > '" + startDate + "' AND datum <= '" + endDate + "'");
-                        for (int i = 0; i < data.length; i++) {
-                            termine.next();
-                            data[i] = new Object[]{"<html><font color='" + termine.getString(7) + "'>" + termine.getString(2) + "</font></html>",            //titel
-                                    termine.getDate(3).toLocalDate().format(dtf),   //datum
-                                    termine.getTime(4).toLocalTime().format(ltf),   //startzeit
-                                    termine.getTime(5).toLocalTime().format(ltf),   //dauer
-                                    termine.getString(6)};                          //ort
-                        }
-                        ausgabe = new JTable(data, spaltenNamen);
-                        centerRenderer = new DefaultTableCellRenderer();
-                        centerRenderer.setHorizontalAlignment(JLabel.CENTER);
-                        for (int x = 0; x < ausgabe.getColumnCount(); x++) {
-                            ausgabe.getColumnModel().getColumn(x).setCellRenderer(centerRenderer);
-                        }
-                        return ausgabe;
-                    case NAECHSTERMONAT:
-                        endDate = LocalDate.of(localDate.getYear(), localDate.getMonthValue() + 1, localDate.getDayOfMonth());
-                        numTermine = datenBank.search("SELECT COUNT(datum) FROM `tbl_termine` WHERE datum >= '" + localDate + "' AND datum <= '" + endDate + "'");
-                        numTermine.next();
-                        anzahlTermine = numTermine.getInt(1);
-                        data = new Object[anzahlTermine][];
-                        termine = datenBank.search("SELECT * FROM `tbl_termine` WHERE datum >= '" + localDate + "' AND datum <= '" + endDate + "'");
-                        for (int i = 0; i < data.length; i++) {
-                            termine.next();
-                            data[i] = new Object[]{"<html><font color='" + termine.getString(7) + "'>" + termine.getString(2) + "</font></html>",            //titel
-                                    termine.getDate(3).toLocalDate().format(dtf),   //datum
-                                    termine.getTime(4).toLocalTime().format(ltf),   //startzeit
-                                    termine.getTime(5).toLocalTime().format(ltf),   //dauer
-                                    termine.getString(6)};                          //ort
-                        }
-                        ausgabe = new JTable(data, spaltenNamen);
-                        centerRenderer = new DefaultTableCellRenderer();
-                        centerRenderer.setHorizontalAlignment(JLabel.CENTER);
-                        for (int x = 0; x < ausgabe.getColumnCount(); x++) {
-                            ausgabe.getColumnModel().getColumn(x).setCellRenderer(centerRenderer);
-                        }
-                        return ausgabe;
-                }
-            } else {        //ausgabe als Kalender
-                String[] spaltenNamen = {"Montag","Dienstag","Mittwoch","Donnerstag","Freitag","Samstag","Sonntag"};
-                switch (zeitraum)   {
-                    case WOCHE:
-                        System.out.println("kalender");
-
-                        LocalDate startDate = LocalDate.ofYearDay(localDate.getYear(), localDate.getDayOfYear() - localDate.getDayOfWeek().getValue());
-                        LocalDate endDate = LocalDate.ofYearDay(localDate.getYear(), localDate.getDayOfYear() + (7 - localDate.getDayOfWeek().getValue()));
-                        numTermine = datenBank.search("SELECT COUNT(datum) FROM `tbl_termine` WHERE datum > '" + startDate + "' AND datum <= '" + endDate + "'");
-                        numTermine.next();
-                        anzahlTermine = numTermine.getInt(1);
-                        Object[][] data = new Object[1][7];
-                        ResultSet termine = datenBank.search("SELECT * FROM `tbl_termine` WHERE datum > '" + startDate + "' AND datum <= '" + endDate + "'");
-
-                        termine.next();
-
-
-                        for (int i = 0; i < 7; i++) {
-                            data[0][i]  = "<html>test<br>test2</html>";
-
-                        }
-                        JTable ausgabe = new JTable(data, spaltenNamen);
-                        DefaultTableCellRenderer centerRenderer = new DefaultTableCellRenderer();
-                        centerRenderer.setHorizontalAlignment(JLabel.CENTER);
-                        for (int x = 0; x < ausgabe.getColumnCount(); x++) {
-                            ausgabe.getColumnModel().getColumn(x).setCellRenderer(centerRenderer);
-                        }
-                        return ausgabe;
-
-                }
-            }
-
-        } catch (SQLException err) {
-            System.err.println(err);
-        } catch (NullPointerException nul) {
-        }
-        return null;
-    }
-
     private void createMainWindow() {
         JPanel mainPanel = new JPanel();
-        mainPanel.setLayout(new BoxLayout(mainPanel, BoxLayout.X_AXIS));
+        mainPanel.setLayout(new BoxLayout(mainPanel, BoxLayout.Y_AXIS));
+
+        JPanel searchPanel = new JPanel();
+        searchPanel.setLayout(new BoxLayout(searchPanel, BoxLayout.X_AXIS));
+        searchPanel.setMaximumSize(new Dimension(1000,20));
+
+        JTextField queryField = new JTextField();
+
+        ActionListener searchAction = new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                String searchQuery = queryField.getText();
+                boolean istDatum = false;
+
+                char[] searchQueryChar = searchQuery.toCharArray();
+                for(int i = 0;i< searchQueryChar.length; i++)   {
+                    if(searchQueryChar[i] == '.')   {
+                        istDatum = true;
+                    }
+                }
+
+                JScrollPane ausgabePane;
+
+                if(istDatum)    {
+                    ausgabePane = new JScrollPane(ausgabenGenerator.ausgabeNachInput(null,convertToLocalDate(searchQuery),null,null,null,null));
+                } else {
+                    ausgabePane = new JScrollPane(ausgabenGenerator.ausgabeNachInput(searchQuery,null,null,null,searchQuery,searchQuery));
+                }
+
+                displaySearchPanel = new JPanel();
+                displaySearchPanel.setLayout(new BoxLayout(displaySearchPanel, BoxLayout.Y_AXIS));
+
+                JPanel ueberschriftSearchPanel = new JPanel();
+                ueberschriftSearchPanel.add(new JLabel("Ausgabe der Suche"));
+
+                displaySearchPanel.add(ueberschriftSearchPanel);
+                displaySearchPanel.add(ausgabePane);
+
+                ausgabe.add(displaySearchPanel,"suche");
+
+                mainAusgabe = (CardLayout)ausgabe.getLayout();
+
+                lastDisplayType = "suche";
+
+                mainAusgabe.show(ausgabe,"suche");
+
+            }
+        };
+
+        queryField.addActionListener(searchAction);
+
+        JButton searchButton = new JButton("suchen");
+        searchButton.addActionListener(searchAction);
+
+        searchPanel.add(Box.createRigidArea(new Dimension(5,0)));
+        searchPanel.add(queryField);
+        searchPanel.add(Box.createRigidArea(new Dimension(10,0)));
+        searchPanel.add(searchButton);
+        searchPanel.add(Box.createRigidArea(new Dimension(5,0)));
+
+
+        JPanel displayPanel = new JPanel();
+        displayPanel.setLayout(new BoxLayout(displayPanel, BoxLayout.X_AXIS));
 
         ausgabe = new JPanel();
         ausgabe.setLayout(new CardLayout());
@@ -278,6 +164,7 @@ public class GUI extends JFrame {
             @Override
             public void actionPerformed(ActionEvent e) {
                 mainAusgabe.show(ausgabe,"alle");
+                lastDisplayType = "alle";
             }
         });
 
@@ -291,6 +178,7 @@ public class GUI extends JFrame {
             @Override
             public void actionPerformed(ActionEvent e) {
                 mainAusgabe.show(ausgabe,"heute");
+                lastDisplayType = "heute";
             }
         });
 
@@ -304,6 +192,7 @@ public class GUI extends JFrame {
             @Override
             public void actionPerformed(ActionEvent e) {
                 mainAusgabe.show(ausgabe, "woche");
+                lastDisplayType = "woche";
             }
         });
 
@@ -312,11 +201,12 @@ public class GUI extends JFrame {
         dieseWochePanel.add(termineWoche);
         dieseWochePanel.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        JButton termineNaechsteWoche = new JButton("termine der nächsten Woche ausgeben");      //TODO: bessere Beschriftung
+        JButton termineNaechsteWoche = new JButton("termine der nächsten Woche ausgeben");
         termineNaechsteWoche.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
                 mainAusgabe.show(ausgabe, "naechste woche");
+                lastDisplayType = "naechste woche";
             }
         });
 
@@ -330,6 +220,7 @@ public class GUI extends JFrame {
             @Override
             public void actionPerformed(ActionEvent e) {
                 mainAusgabe.show(ausgabe, "monat");
+                lastDisplayType = "monat";
             }
         });
 
@@ -338,11 +229,12 @@ public class GUI extends JFrame {
         diesenMonatPanel.add(termineMonat);
         diesenMonatPanel.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        JButton termineNaechsterMonat = new JButton("termine des nächsten Monats ausgeben");      //TODO: bessere Beschriftung
+        JButton termineNaechsterMonat = new JButton("termine des nächsten Monats ausgeben");
         termineNaechsterMonat.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
                 mainAusgabe.show(ausgabe, "naechster monat");
+                lastDisplayType = "naechster monat";
             }
         });
 
@@ -365,11 +257,27 @@ public class GUI extends JFrame {
         einfuegenPanel.add(einfuegenButton);
         einfuegenPanel.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        JButton anzeigeUmschaltenButton = new JButton("Anzeige umschalten");
+        JButton entfernenButton = new JButton("einen Termin entfernen");
+        entfernenButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                removeWindow.setVisible(true);
+            }
+        });
+
+        JPanel entfernenPanel = new JPanel(new FlowLayout());
+        entfernenPanel.add(entfernenButton);
+        entfernenPanel.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+        JButton anzeigeUmschaltenButton = new JButton("Anzeige zu Kalender umschalten");
         anzeigeUmschaltenButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
                 displayType = !displayType;
+                if(displayType)
+                    anzeigeUmschaltenButton.setText("Anzeige zu Kalender umschalten");
+                else
+                    anzeigeUmschaltenButton.setText("Anzeige zu Tabelle umschalten");
                 refreshAusgabePanel();
             }
         });
@@ -408,6 +316,8 @@ public class GUI extends JFrame {
         controlButtons.add(Box.createRigidArea(new Dimension(0,10)));
         controlButtons.add(einfuegenButton);
         controlButtons.add(Box.createRigidArea(new Dimension(0,20)));
+        controlButtons.add(entfernenButton);
+        controlButtons.add(Box.createRigidArea(new Dimension(0,20)));
         controlButtons.add(anzeigeUmschaltenButton);
         controlButtons.add(Box.createRigidArea(new Dimension(0,20)));
         controlButtons.add(beendenButton);
@@ -415,8 +325,13 @@ public class GUI extends JFrame {
 
         refreshAusgabePanel();
 
-        mainPanel.add(ausgabe);
-        mainPanel.add(controlButtons);
+        displayPanel.add(ausgabe);
+        displayPanel.add(controlButtons);
+
+        mainPanel.add(Box.createRigidArea(new Dimension(0,5)));
+        mainPanel.add(searchPanel);
+        mainPanel.add(Box.createRigidArea(new Dimension(0,5)));
+        mainPanel.add(displayPanel);
 
         this.getContentPane().add(mainPanel);
         this.setVisible(true);
@@ -425,13 +340,12 @@ public class GUI extends JFrame {
     private void refreshAusgabePanel(){
         ausgabe.removeAll();
 
-        JScrollPane tableScrollPaneAlle = new JScrollPane(ausgabeGenerieren(Zeitraum.ALLE));
-        JScrollPane tableScrollPaneHeute = new JScrollPane(ausgabeGenerieren(Zeitraum.HEUTE));
-        JScrollPane tableScrollPaneWoche = new JScrollPane(ausgabeGenerieren(Zeitraum.WOCHE));
-        JScrollPane tableScrollPaneNaechsteWoche = new JScrollPane(ausgabeGenerieren(Zeitraum.NAECHSTEWOCHE));
-        JScrollPane tableScrollPaneMonat = new JScrollPane(ausgabeGenerieren(Zeitraum.MONAT));
-        JScrollPane tableScrollPaneNaechstenMonat = new JScrollPane(ausgabeGenerieren(Zeitraum.NAECHSTERMONAT));
-
+        JScrollPane tableScrollPaneAlle = new JScrollPane(ausgabenGenerator.ausgabeGenerieren(Zeitraum.ALLE, true));
+        JScrollPane tableScrollPaneHeute = new JScrollPane(ausgabenGenerator.ausgabeGenerieren(Zeitraum.HEUTE, true));
+        JScrollPane tableScrollPaneWoche = new JScrollPane(ausgabenGenerator.ausgabeGenerieren(Zeitraum.WOCHE, displayType));
+        JScrollPane tableScrollPaneNaechsteWoche = new JScrollPane(ausgabenGenerator.ausgabeGenerieren(Zeitraum.NAECHSTEWOCHE, displayType));
+        JScrollPane tableScrollPaneMonat = new JScrollPane(ausgabenGenerator.ausgabeGenerieren(Zeitraum.MONAT, displayType));
+        JScrollPane tableScrollPaneNaechstenMonat = new JScrollPane(ausgabenGenerator.ausgabeGenerieren(Zeitraum.NAECHSTERMONAT, displayType));
 
         JPanel ausgabePanelAlle = new JPanel();
         ausgabePanelAlle.setLayout(new BoxLayout(ausgabePanelAlle, BoxLayout.Y_AXIS));
@@ -492,8 +406,194 @@ public class GUI extends JFrame {
         ausgabe.add(ausgabePanelNaechsteWoche, "naechste woche");
         ausgabe.add(ausgabePanelMonat, "monat");
         ausgabe.add(ausgabePanelNaechstenMonat, "naechster monat");
+        ausgabe.add(displaySearchPanel,"suche");
 
         mainAusgabe = (CardLayout)(ausgabe.getLayout());
+        mainAusgabe.show(ausgabe,lastDisplayType);
+    }
+
+    private void createRemoveWindow()   {
+        JPanel removePanel = new JPanel();
+        removePanel.setLayout(new BoxLayout(removePanel, BoxLayout.Y_AXIS));
+
+        JPanel previewPanel = new JPanel(new CardLayout());
+
+        JPanel ueberschriftPanel = new JPanel(new FlowLayout());
+        JLabel ueberschriftLabel = new JLabel("einen vorhandenen Termin anhand von Titel, Datum, Ort oder Farbe entfernen");
+        ueberschriftLabel.setFont(new Font("Calibri",Font.BOLD,18));
+        ueberschriftPanel.add(ueberschriftLabel);
+
+        JPanel erklaerungsTextPanel = new JPanel(new FlowLayout());
+        JLabel erklaerungsTextLabel = new JLabel("<html>unten die gewollten Parameter eingeben, nach denen die Termine entfernt werden.<br>der Vorschau-Knopf zeit alle einträge an, für die mindestens eine Eigenschaft übereinstimmt.<br>der Entfernen-Knopf entfernt alle Einträge, für die alle gewählten Eigenschaften übereinstimmen.</html>");
+//        erklaerungsTextLabel.setFont(new Font("Calibri", Font.BOLD,12));
+        erklaerungsTextPanel.add(erklaerungsTextLabel);
+
+        JPanel eingabePanel = new JPanel();
+        eingabePanel.setLayout(new BoxLayout(eingabePanel, BoxLayout.X_AXIS));
+
+        JPanel spalte1 = new JPanel();
+        spalte1.setLayout(new BoxLayout(spalte1, BoxLayout.Y_AXIS));
+
+        JPanel spalte2 = new JPanel();
+        spalte2.setLayout(new BoxLayout(spalte2, BoxLayout.Y_AXIS));
+
+        JPanel spalte3 = new JPanel();
+        spalte3.setLayout(new BoxLayout(spalte3, BoxLayout.Y_AXIS));
+
+        JPanel spalte4 = new JPanel();
+        spalte4.setLayout(new BoxLayout(spalte4, BoxLayout.Y_AXIS));
+
+        JPanel lp1 = new JPanel(new FlowLayout());
+        lp1.add(new JLabel("Titel"));
+
+        JTextField titelFeld = new JTextField();
+
+        JPanel lp2 = new JPanel(new FlowLayout());
+        lp2.add(new JLabel("Datum"));
+
+        JTextField datumFeld = new JTextField();
+
+        JPanel lp3 = new JPanel(new FlowLayout());
+        lp3.add(new JLabel("Ort"));
+
+        JTextField ortFeld = new JTextField();
+
+        JPanel lp4 = new JPanel(new FlowLayout());
+        lp4.add(new JLabel("Farbe"));
+
+        JTextField farbeFeld = new JTextField();
+
+        spalte1.add(lp1);
+        spalte1.add(titelFeld);
+
+        spalte2.add(lp2);
+        spalte2.add(datumFeld);
+
+        spalte3.add(lp3);
+        spalte3.add(ortFeld);
+
+        spalte4.add(lp4);
+        spalte4.add(farbeFeld);
+
+        eingabePanel.add(Box.createRigidArea(new Dimension(5,0)));
+        eingabePanel.add(spalte1);
+        eingabePanel.add(Box.createRigidArea(new Dimension(30,0)));
+        eingabePanel.add(spalte2);
+        eingabePanel.add(Box.createRigidArea(new Dimension(30,0)));
+        eingabePanel.add(spalte3);
+        eingabePanel.add(Box.createRigidArea(new Dimension(30,0)));
+        eingabePanel.add(spalte4);
+        eingabePanel.add(Box.createRigidArea(new Dimension(5,0)));
+
+        JPanel controlButtons = new JPanel();
+        controlButtons.setLayout(new BoxLayout(controlButtons, BoxLayout.X_AXIS));
+
+        JButton cancelButton = new JButton("abbrechen");
+        cancelButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                removeWindow.setVisible(false);
+            }
+        });
+
+        JButton previewButton = new JButton("vorschau");
+        previewButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if(datumFeld.getText().equals(""))
+                    previewPanel.add(ausgabenGenerator.ausgabeNachInput(titelFeld.getText(),null,null,null, ortFeld.getText(), farbeFeld.getText()),"ausgabe");
+                else
+                    previewPanel.add(ausgabenGenerator.ausgabeNachInput(titelFeld.getText(),convertToLocalDate(datumFeld.getText()),null,null, ortFeld.getText(), farbeFeld.getText()),"ausgabe");
+
+                CardLayout previewLayout = (CardLayout)previewPanel.getLayout();
+                previewLayout.show(previewPanel, "ausgabe");
+
+                removeWindow.pack();
+            }
+        });
+
+        JButton removeButton = new JButton("entfernen");
+        removeButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                String queryTitel;
+                String queryDatum;
+                String queryOrt;
+                String queryFarbe;
+                int count = 0;
+
+                if(titelFeld.getText().equals(""))
+                    queryTitel = "";
+                else {
+                    queryTitel = " titel = '" + titelFeld.getText() + "' AND";
+                    count ++;
+                }
+
+                if(ortFeld.getText().equals(""))
+                    queryOrt = "";
+                else {
+                    queryOrt = " ort = '" + ortFeld.getText() + "' AND";
+                    count ++;
+                }
+
+                if(farbeFeld.getText().equals(""))
+                    queryFarbe = "";
+                else {
+                    queryFarbe = " farbe = '" + farbeFeld.getText() + "' AND";
+                    count ++;
+                }
+
+                if(!datumFeld.getText().equals("")) {
+                    LocalDate datum = convertToLocalDate(datumFeld.getText());
+
+                    queryDatum = " datum = '"+datum+"' AND";
+                    count ++;
+                } else {
+                    queryDatum = "";
+                }
+
+                datenBank.execute("DELETE FROM `tbl_termine` WHERE"+queryTitel+queryDatum+queryOrt+queryFarbe+" "+(count>0)
+                        +";");
+
+                removeWindow.setVisible(false);
+                titelFeld.setText("");
+                datumFeld.setText("");
+                ortFeld.setText("");
+                farbeFeld.setText("");
+
+                CardLayout previewLayout = (CardLayout)previewPanel.getLayout();
+                previewLayout.show(previewPanel, "empty");
+                removeWindow.pack();
+
+                refreshAusgabePanel();
+            }
+        });
+
+        controlButtons.add(Box.createHorizontalGlue());
+        controlButtons.add(cancelButton);
+        controlButtons.add(Box.createRigidArea(new Dimension(20,0)));
+        controlButtons.add(previewButton);
+        controlButtons.add(Box.createRigidArea(new Dimension(20,0)));
+        controlButtons.add(removeButton);
+        controlButtons.add(Box.createRigidArea(new Dimension(5,0)));
+
+        previewPanel.add(new JPanel(new BorderLayout()), "empty");
+
+        removePanel.add(Box.createRigidArea(new Dimension(0,10)));
+        removePanel.add(ueberschriftPanel);
+//        removePanel.add(Box.createRigidArea(new Dimension(0,5)));
+        removePanel.add(erklaerungsTextPanel);
+        removePanel.add(Box.createRigidArea(new Dimension(0,15)));
+        removePanel.add(eingabePanel);
+        removePanel.add(Box.createRigidArea(new Dimension(0,15)));
+        removePanel.add(controlButtons);
+        removePanel.add(Box.createRigidArea(new Dimension(0,15)));
+        removePanel.add(previewPanel);
+        removePanel.add(Box.createRigidArea(new Dimension(0,5)));
+
+        removeWindow.add(removePanel);
+        removeWindow.pack();
+        removeWindow.setLocationRelativeTo(this);
     }
 
     private void createInsertWindow()   {
@@ -501,10 +601,22 @@ public class GUI extends JFrame {
         insertPanel.setLayout(new BoxLayout(insertPanel, BoxLayout.Y_AXIS));
 
         JPanel ueberschriftPanel = new JPanel();
-        ueberschriftPanel.setLayout(new BorderLayout());
+        ueberschriftPanel.setLayout(new FlowLayout());
 
-        ueberschriftPanel.add(new JLabel("neuen Termin hinzufügen"));
+        JLabel uebderschriftLabel = new JLabel("einen neuedn Termine einfügen");
+        uebderschriftLabel.setFont(new Font("Calibri",Font.BOLD, 18));
+
+        ueberschriftPanel.add(uebderschriftLabel);
 //        ueberschriftPanel.setBorder(BorderFactory.createLineBorder(Color.BLACK));
+
+        JPanel erlaerungsPanel = new JPanel(new FlowLayout());
+        JLabel erklaetungsLabel = new JLabel("<html>Zum eingeben eines Termins die gewüschten Daten eingeben.<br>" +
+                "Wird das Feld für Farbe freigelassen, dann wird standardmäßig Schwarz als Farbe verwendet.<br>" +
+                "Titel und Ort kann als beliebiges Wort gewählt werden. für die Farbe muss das englische Wort verwendet werden.<br>" +
+                "Für das Feld Datum muss der Tag im Format 'tt.mm.jjjj' eingegeben werden.<br>" +
+                "Für die Felder Startzeit und Dauer muss das Format 'SS:mm' vorliegen</html>");
+
+        erlaerungsPanel.add(erklaetungsLabel);
 
         JPanel einfuegePanel = new JPanel();
 //        einfuegePanel.setBorder(BorderFactory.createLineBorder(Color.BLUE));
@@ -517,6 +629,7 @@ public class GUI extends JFrame {
         lp1.setAlignmentX(Component.CENTER_ALIGNMENT);
 
         JTextField titelFeld = new JTextField();
+        titelFeld.setMinimumSize(new Dimension(50,20));
 
         JPanel spalte1 = new JPanel();
         spalte1.setLayout(new BoxLayout(spalte1, BoxLayout.Y_AXIS));
@@ -530,6 +643,7 @@ public class GUI extends JFrame {
         lp2.setAlignmentX(Component.CENTER_ALIGNMENT);
 
         JTextField datumFeld = new JTextField();
+        datumFeld.setMinimumSize(new Dimension(50,20));
 
         JPanel spalte2 = new JPanel();
         spalte2.setLayout(new BoxLayout(spalte2, BoxLayout.Y_AXIS));
@@ -543,6 +657,7 @@ public class GUI extends JFrame {
         lp3.setAlignmentX(Component.CENTER_ALIGNMENT);
 
         JTextField startFeld = new JTextField();
+        startFeld.setMinimumSize(new Dimension(50,20));
 
         JPanel spalte3 = new JPanel();
         spalte3.setLayout(new BoxLayout(spalte3, BoxLayout.Y_AXIS));
@@ -556,6 +671,7 @@ public class GUI extends JFrame {
         lp4.setAlignmentX(Component.CENTER_ALIGNMENT);
 
         JTextField dauerFeld = new JTextField();
+        dauerFeld.setMinimumSize(new Dimension(50,20));
 
         JPanel spalte4 = new JPanel();
         spalte4.setLayout(new BoxLayout(spalte4, BoxLayout.Y_AXIS));
@@ -569,6 +685,7 @@ public class GUI extends JFrame {
         lp5.setAlignmentX(Component.CENTER_ALIGNMENT);
 
         JTextField ortFeld = new JTextField();
+        ortFeld.setMinimumSize(new Dimension(50,20));
 
         JPanel spalte5 = new JPanel();
         spalte5.setLayout(new BoxLayout(spalte5, BoxLayout.Y_AXIS));
@@ -580,6 +697,7 @@ public class GUI extends JFrame {
         lp6.add(new JLabel("Farbe"));
         lp6.setAlignmentY(Component.CENTER_ALIGNMENT);
         lp6.setAlignmentX(Component.CENTER_ALIGNMENT);
+        lp6.setMinimumSize(new Dimension(50,20));
 
         JTextField farbeFeld = new JTextField();
 
@@ -618,39 +736,13 @@ public class GUI extends JFrame {
         addButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                char[] datum = datumFeld.getText().toCharArray();
-                int[] punkte = new int[2];
-
-                for(int i = 0; i < datum.length; i++)   {
-                    if(datum[i] == '.') {
-                        if(punkte[0] == 0)  {
-                            punkte[0] = i;
-                        } else {
-                            punkte[1] = i;
-                        }
-                    }
-                }
-
-
-                String temp = "";
-                for(int i = 0; i < punkte[0]; i++) 
-                    temp += datum[i];
-                int tag = Integer.parseInt(temp);
-                temp = "";
-                for(int i = punkte[0]+1; i < punkte[1]; i++)
-                    temp += datum[i];
-                int monat = Integer.parseInt(temp);
-                temp = "";
-                for(int i = punkte[1]+1; i < datum.length; i++)
-                    temp += datum[i];
-                int jahr = Integer.parseInt(temp);
 
                 String farbe = farbeFeld.getText();
                 if(farbe.equals("")) {
                     farbe = "BLACK";
                 }
 
-                datenBank.einfuegen(titelFeld.getText(), LocalDate.of(jahr,monat,tag),startFeld.getText(), dauerFeld.getText(), ortFeld.getText(), farbe.toUpperCase());
+                datenBank.einfuegen(titelFeld.getText(), convertToLocalDate(datumFeld.getText()),startFeld.getText(), dauerFeld.getText(), ortFeld.getText(), farbe.toUpperCase());
 
                 refreshAusgabePanel();
 
@@ -674,6 +766,7 @@ public class GUI extends JFrame {
         controlButtons.add(Box.createRigidArea(new Dimension(10,0)));
 
         insertPanel.add(ueberschriftPanel);
+        insertPanel.add(erlaerungsPanel);
         insertPanel.add(Box.createRigidArea(new Dimension(0,15)));
         insertPanel.add(einfuegePanel);
         insertPanel.add(Box.createRigidArea(new Dimension(0,15)));
@@ -681,5 +774,35 @@ public class GUI extends JFrame {
         insertPanel.add(Box.createRigidArea(new Dimension(0,5)));
 
         insertWindow.add(insertPanel);
+
+        insertWindow.pack();
+    }
+
+    private LocalDate convertToLocalDate(String dateInput)    {
+        char[] datum = dateInput.toCharArray();
+        int[] punkte = new int[2];
+        for (int i = 0; i < datum.length; i++) {
+            if (datum[i] == '.') {
+                if (punkte[0] == 0) {
+                    punkte[0] = i;
+                } else {
+                    punkte[1] = i;
+                }
+            }
+        }
+        String temp = "";
+        for (int i = 0; i < punkte[0]; i++)
+            temp += datum[i];
+        int tag = Integer.parseInt(temp);
+        temp = "";
+        for (int i = punkte[0] + 1; i < punkte[1]; i++)
+            temp += datum[i];
+        int monat = Integer.parseInt(temp);
+        temp = "";
+        for (int i = punkte[1] + 1; i < datum.length; i++)
+            temp += datum[i];
+        int jahr = Integer.parseInt(temp);
+
+        return LocalDate.of(jahr,monat,tag);
     }
 }

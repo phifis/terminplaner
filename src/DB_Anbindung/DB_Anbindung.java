@@ -98,6 +98,19 @@ public class DB_Anbindung {
         }
     }
 
+    public void execute (String query)  {
+        try {
+            stmt = conn.createStatement();
+            //das ergebnis kommt in ein Resultset Object
+            stmt.execute(query);
+        } catch (SQLException e)    {
+            System.err.println(e);
+        } catch (NullPointerException err)  {
+//            System.err.println(err);
+            System.err.println("Datenbank nicht erreichbar");
+        }
+    }
+
     public void einfuegen(String titel, LocalDate datum, String startzeit, String dauer, String ort, String farbe) {
         try{
             query = "SELECT * FROM tbl_termine WHERE `titel` = '"+titel+"' AND `datum` = '"+datum+"'";
