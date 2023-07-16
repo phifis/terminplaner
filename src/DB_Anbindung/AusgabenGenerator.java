@@ -5,6 +5,9 @@ import javax.swing.border.MatteBorder;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDate;
@@ -23,12 +26,19 @@ public class AusgabenGenerator {
     private Object[][] data;
     private String[] spaltenNamen;
     private int linesMax;
+    private String order_by = "ORDER BY datum";
+    int current_order_by_column = 1;
+    boolean current_order_by_direction = true;      //true = aufsteigend, false = absteigend
+    private MouseListener headerListener;
 
     private DB_Anbindung datenBank;
 
     public AusgabenGenerator(DB_Anbindung datenBank)  {
         this.datenBank = datenBank;
     }
+
+    public MouseListener getHeaderListener() {return headerListener;}
+    public void setHeaderListener(MouseListener headerListener) {this.headerListener = headerListener;}
 
     public JTable ausgabeNachInput(String titel, LocalDate datum, LocalDate startZeit, LocalDate dauer, String ort, String farbe)   {
         String queryTitel;
@@ -78,7 +88,7 @@ public class AusgabenGenerator {
 
             data = new Object[anzahlTermine][];
 
-            ResultSet termine = datenBank.search("SELECT * FROM `tbl_termine` WHERE"+queryTitel+queryDatum+queryStartZeit+queryDauer+queryOrt+queryFarbe+" 0");
+            ResultSet termine = datenBank.search("SELECT * FROM `tbl_termine` WHERE"+queryTitel+queryDatum+queryStartZeit+queryDauer+queryOrt+queryFarbe+" 0 "+order_by);
 
 
             for (int i = 0; i < data.length; i++) {
@@ -117,7 +127,7 @@ public class AusgabenGenerator {
                     numTermine.next();
                     anzahlTermine = numTermine.getInt(1);
                     data = new Object[anzahlTermine][];
-                    ResultSet termine = datenBank.search("SELECT * FROM `tbl_termine` WHERE 1");
+                    ResultSet termine = datenBank.search("SELECT * FROM `tbl_termine` WHERE 1 "+order_by);
                     for (int i = 0; i < data.length; i++) {
                         termine.next();
                         data[i] = new Object[]{"<html><font color='" + termine.getString(7) + "'>" + termine.getString(2) + "</font></html>",            //titel
@@ -131,7 +141,7 @@ public class AusgabenGenerator {
 
 
                      case HEUTE:
-                    numTermine = datenBank.search("SELECT COUNT(datum) FROM `tbl_termine` WHERE datum = '" + localDate + "'");
+                    numTermine = datenBank.search("SELECT COUNT(datum) FROM `tbl_termine` WHERE datum = '" + localDate + "' "+order_by);
                     numTermine.next();
                     anzahlTermine = numTermine.getInt(1);
                     data = new Object[anzahlTermine][];
@@ -156,7 +166,7 @@ public class AusgabenGenerator {
                         numTermine.next();
                         anzahlTermine = numTermine.getInt(1);
                         data = new Object[anzahlTermine][];
-                        termine = datenBank.search("SELECT * FROM `tbl_termine` WHERE datum > '" + startDate + "' AND datum <= '" + endDate + "'");
+                        termine = datenBank.search("SELECT * FROM `tbl_termine` WHERE datum > '" + startDate + "' AND datum <= '" + endDate + "' "+order_by);
                         for (int i = 0; i < data.length; i++) {
                             termine.next();
                             data[i] = new Object[]{"<html><font color='" + termine.getString(7) + "'>" + termine.getString(2) + "</font></html>",            //titel
@@ -218,7 +228,7 @@ public class AusgabenGenerator {
                         numTermine.next();
                         anzahlTermine = numTermine.getInt(1);
                         data = new Object[anzahlTermine][];
-                        termine = datenBank.search("SELECT * FROM `tbl_termine` WHERE datum >= '" + localDate + "' AND datum <= '" + endDate + "'");
+                        termine = datenBank.search("SELECT * FROM `tbl_termine` WHERE datum >= '" + localDate + "' AND datum <= '" + endDate + "' "+order_by);
                         for (int i = 0; i < data.length; i++) {
                             termine.next();
                             data[i] = new Object[]{"<html><font color='" + termine.getString(7) + "'>" + termine.getString(2) + "</font></html>",            //titel
@@ -292,7 +302,7 @@ public class AusgabenGenerator {
                         numTermine.next();
                         anzahlTermine = numTermine.getInt(1);
                         data = new Object[anzahlTermine][];
-                        termine = datenBank.search("SELECT * FROM `tbl_termine` WHERE datum > '" + startDate + "' AND datum <= '" + endDate + "'");
+                        termine = datenBank.search("SELECT * FROM `tbl_termine` WHERE datum > '" + startDate + "' AND datum <= '" + endDate + "' "+order_by);
                         for (int i = 0; i < data.length; i++) {
                             termine.next();
                             data[i] = new Object[]{"<html><font color='" + termine.getString(7) + "'>" + termine.getString(2) + "</font></html>",            //titel
@@ -365,7 +375,7 @@ public class AusgabenGenerator {
                         numTermine.next();
                         anzahlTermine = numTermine.getInt(1);
                         data = new Object[anzahlTermine][];
-                        termine = datenBank.search("SELECT * FROM `tbl_termine` WHERE datum >= '" + localDate + "' AND datum <= '" + endDate + "'");
+                        termine = datenBank.search("SELECT * FROM `tbl_termine` WHERE datum >= '" + localDate + "' AND datum <= '" + endDate + "' "+order_by);
                         for (int i = 0; i < data.length; i++) {
                             termine.next();
                             data[i] = new Object[]{"<html><font color='" + termine.getString(7) + "'>" + termine.getString(2) + "</font></html>",            //titel
@@ -435,9 +445,12 @@ public class AusgabenGenerator {
             System.err.println(err);
         } catch (NullPointerException nul) {
         }
-        if(displayType)
+        if(displayType) {
             spaltenNamen = new String[]{"Titel", "Datum", "Startzeit", "Dauer", "Ort"};
-        else
+
+            if(current_order_by_direction)  spaltenNamen[current_order_by_column] += " \u2191";     //arrow up
+            else                            spaltenNamen[current_order_by_column] += " \u2193";     //arrow down
+        }else
             spaltenNamen = new String[]{"Montag","Dienstag","Mittwoch","Donnerstag","Freitag","Samstag","Sonntag"};
 
         ausgabe = new JTable(data, spaltenNamen);
@@ -447,18 +460,69 @@ public class AusgabenGenerator {
             ausgabe.getColumnModel().getColumn(x).setCellRenderer(centerRenderer);
         }
 
-        if (!displayType)   {
+        if(displayType) {
+            ausgabe.getTableHeader().addMouseListener(headerListener);
+
+            DefaultTableCellRenderer colorRenderer = new DefaultTableCellRenderer();
+            colorRenderer.setBackground(Color.LIGHT_GRAY);
+            colorRenderer.setHorizontalAlignment(SwingConstants.CENTER);
+            ausgabe.getColumnModel().getColumn(current_order_by_column).setHeaderRenderer(colorRenderer);
+        } else   {
             ausgabe.setRowHeight(linesMax * 15 + 8);
             DefaultTableCellRenderer colorRender = new DefaultTableCellRenderer();
             colorRender.setBackground(Color.CYAN);
+            colorRender.setHorizontalAlignment(JLabel.CENTER);
             ausgabe.getColumnModel().getColumn(localDate.getDayOfWeek().getValue()-1).setHeaderRenderer(colorRender);
-
-
-            return ausgabe;
         }
 
-
+        ausgabe.setDefaultEditor(Object.class, null);
 
         return ausgabe;
+    }
+
+    public void order_byChange(Point p)    {
+        int col = ausgabe.columnAtPoint(p);
+        current_order_by_column = col;
+
+        switch (col)    {
+            case 0:
+                if(order_by.contains("titel") && !order_by.contains("desc"))
+                    order_by = "ORDER BY titel desc";
+                else
+                    order_by = "ORDER BY titel";
+                break;
+            case 1:
+                if(order_by.contains("datum") && !order_by.contains("desc"))
+                    order_by = "ORDER BY datum desc";
+                else
+                    order_by = "ORDER BY datum";
+                break;
+            case 2:
+                if(order_by.contains("startzeit") && !order_by.contains("desc"))
+                    order_by = "ORDER BY startzeit desc";
+                else
+                    order_by = "ORDER BY startzeit";
+                break;
+            case 3:
+                if(order_by.contains("dauer") && !order_by.contains("desc"))
+                    order_by = "ORDER BY dauer desc";
+                else
+                    order_by = "ORDER BY dauer";
+                break;
+            case 4:
+                if(order_by.contains("ort") && !order_by.contains("desc"))
+                    order_by = "ORDER BY ort desc";
+                else
+                    order_by = "ORDER BY ort";
+                break;
+            case 5:
+                if(order_by.contains("farbe") && !order_by.contains("desc"))
+                    order_by = "ORDER BY farbe desc";
+                else
+                    order_by = "ORDER BY farbe";
+                break;
+        }
+
+        current_order_by_direction = !order_by.contains("desc");
     }
 }

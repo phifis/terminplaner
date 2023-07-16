@@ -111,15 +111,41 @@ public class DB_Anbindung {
         }
     }
 
-    public void einfuegen(String titel, LocalDate datum, String startzeit, String dauer, String ort, String farbe) {
-        try{
+    public boolean bereitsVorhanden(String titel, LocalDate datum)  {
+        try {
             query = "SELECT * FROM tbl_termine WHERE `titel` = '"+titel+"' AND `datum` = '"+datum+"'";
             //wir benötigen ein Statement-Objekt, um Aktivitäten auf der DB auszuführen
             stmt = conn.createStatement();
             //das ergebnis kommt in ein Resultset Object
             rs = stmt.executeQuery(query);
 
-            if(!rs.next())  {
+            if(!rs.next())  return false;
+            else            return true;
+        }catch (SQLException sql){
+            System.err.println(sql);
+        }
+        return true;
+    }
+
+    public boolean bereitsVorhanden(String titel, LocalDate datum, int t_id)    {
+        try {
+            query = "SELECT * FROM tbl_termine WHERE `titel` = '"+titel+"' AND `datum` = '"+datum+"' AND `t_id` <> '"+t_id+"'";
+            //wir benötigen ein Statement-Objekt, um Aktivitäten auf der DB auszuführen
+            stmt = conn.createStatement();
+            //das ergebnis kommt in ein Resultset Object
+            rs = stmt.executeQuery(query);
+
+            if(!rs.next())  return false;
+            else            return true;
+        }catch (SQLException sql){
+            System.err.println(sql);
+        }
+        return true;
+    }
+
+    public void einfuegen(String titel, LocalDate datum, String startzeit, String dauer, String ort, String farbe) {
+        try{
+            if(!bereitsVorhanden(titel, datum))  {
                 query = "INSERT INTO `tbl_termine`(`titel`, `datum`, `startzeit`, `dauer`, `ort`, `farbe`) VALUES ('"+titel+"','"+datum+"','"+startzeit+"','"+dauer+"','"+ort+"','"+farbe+"')";
                 //wir benötigen ein Statement-Objekt, um Aktivitäten auf der DB auszuführen
                 stmt = conn.createStatement();
